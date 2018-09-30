@@ -262,4 +262,10 @@ type IWalletClient interface {
 	// The response result is the query hit object-id list
 	//
 	IndexGet(http.Header, *IndexGetPayload) ([]string, error)
+
+	// SendTransferCTokenWithSignature ...
+	SendTransferCTokenWithSignature(http.Header, *TransferCTokenBody, *pki.SignatureBody) ([]*wallet.TX, error)
+
+	// SignTx ...
+	SignTx(*wallet.TX, *pki.SignatureParam) error
 }
