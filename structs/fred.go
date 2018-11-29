@@ -30,11 +30,27 @@ const (
 	FredUploadFileFormHeader = "file"
 )
 
+// 企业认证信息
 const (
-	FredUserType_Service  = 1 // 系统服务用户, 内部使用 不允许外部创建
-	FredUserType_DApp     = 2 // DAPP用户, 用于企业开发DAPP使用
-	FredUserType_AppChain = 3 // 应用链用户, 用于链群网关使用
-	FredUserType_Normal   = 4 // 普通用户，企业DAPP创建的普通用户
+	FredCompanyNameFormHeader         = "company_name"          // 企业名称
+	FredCompanyAddrFormHeader         = "company_address"       // 企业地址
+	FredTaxCodeFormHeader             = "tax_code"              // 企业税号
+	FredJuridicalPersonNameFormHeader = "juridical_person_name" // 法人姓名
+	FredJuridicalPersonTelFormHeader  = "juridical_person_tel"  // 法人电话
+	FredJuridicalPersonIDFormHeader   = "juridical_person_id"   // 法人身份证号
+	FredLicenceFormHeader             = "licence"               // 营业执照文件
+	FredIdentityTopFormHeader         = "identity_top"          // 法人身份证正面
+	FredIdentityBottomFormHeader      = "identity_bottom"       // 法人身份证背面
+	FredLicenceNumberHeader           = "licence_number"        // 营业执照编号
+)
+
+const (
+	FredUserType_Service    = 1 // 系统服务用户, 内部使用 不允许外部创建
+	FredUserType_Enterprise = 2 // 企业用户
+	FredUserType_AppChain   = 3 // 应用链用户, 用于链群网关使用
+	FredUserType_Normal     = 4 // 普通用户，企业DAPP创建的普通用户
+	FredUserType_DApp       = 5 // DAPP用户, 用于DAPP应用
+
 )
 
 type IFredClient interface {
@@ -369,4 +385,66 @@ type ACLResource struct {
 // UpdateUserGroupRequest ...
 type UpdateUserGroupRequest struct {
 	Users []UserInfo `json:"users,omitempty"`
+}
+
+// SubwalletRegisterRequest ...
+type SubwalletRegisterRequest struct {
+	Identifier      string `json:"identifier,omitempty"`
+	ParentIdentifer string `json:"parent_identifier, omitempty"`
+	SubwalletType   int32  `json:"subwallet_type,omitempty"`
+}
+
+// DAppUpdateRequest ...
+type DAppUpdateRequest struct {
+	Identifier  string `json:"identifier,omitempty"`
+	Name        string `json:"name,omitepmty"`
+	Type        int    `json:"type,omitempty"`
+	Description string `json:"description,omitempty"`
+	IconFile    []byte `json:"icon,omitempty"`
+	IconName    string `json:"icon_name" gorm:"type:varchar(32)"`
+}
+
+// DAppListResp ...
+type DAppListResp struct {
+	ID               int64  `json:"id,omitempty" gorm:"primary_key;AUTO_INCREMENT"`
+	Name             string `json:"name.omitempty" gorm:"type:varchar(32)"`
+	ApiKey           string `json:"api_key,omitempty" gorm:"type:varchar(128)"`
+	Identifier       string `json:"identifier,omitempty" gorm:"type:varchar(128);"`
+	ParentIdentifier string `json:"parent_identifier,omitempty" gorm:"type:varchar(128)"`
+	Type             int    `json:"type,omitempty"` //包括去中心化交易所，游戏，其他等
+	Description      string `json:"description,omitempty" gorm:"type:varchar(128)"`
+	IconFile         []byte `json:"icon_file" gorm:"type:bytea"`
+	IconName         string `json:"icon_name" gorm:"type:varchar(32)"`
+	IssuedAt         int64  `json:"issued_at,omitempty"`
+}
+
+// UsersNumResponse ...
+type UsersNumResponse struct {
+	UsersNum int `json:"users_num,omitempty"`
+}
+
+// DappUsersNumResponse ...
+type DappUsersNumResponse struct {
+	DappUsersNum int `json:"dapp_users_num,omitempty"`
+}
+
+// DappInfoResponse slice should be return when query users info list
+type DappInfoResponse struct {
+	Identifier         string `json:"id,omitempty"`
+	Access             string `json:"access,omitempty"`
+	Email              string `json:"email,omitempty"`
+	Phone              string `json:"phone,omitempty"`
+	GroupID            uint   `json:"group_id,omitempty"`
+	UserType           uint   `json:"user_type,omitempty"`
+	ChannelID          string `json:"channel_id,omitempty"`
+	Description        string `json:"description,omitempty"`
+	VerificationStatus string `json:"verification_status"`
+	MetaData           string `json:"meta_data,omitempty"`
+}
+
+// UsersGrowthResponse  slice should be return when query users growth
+type UsersGrowthResponse struct {
+	DateTime string `json:"datetime,omitempty"`
+	// the num of new users created during datetime
+	GrowthAmount int `json:"growth_amount,omitempty"`
 }
