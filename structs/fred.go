@@ -44,13 +44,30 @@ const (
 	FredLicenceNumberHeader           = "licence_number"        // 营业执照编号
 )
 
+// 实名认证状态
+const (
+	FredVerificationStatusNotUploaded  = 1 // 身份文件未上传
+	FredVerificationStatusUnverified   = 2 // 待审核
+	FredVerificationStatusVerifyFailed = 3 // 审核失败
+	FredVerificationStatusVerified     = 4 // 认证成功
+)
+
 const (
 	FredUserType_Service    = 1 // 系统服务用户, 内部使用 不允许外部创建
 	FredUserType_Enterprise = 2 // 企业用户
-	FredUserType_AppChain   = 3 // 应用链用户, 用于链群网关使用
+	FredUserType_AppChain   = 3 // ChainAPP用户, 用于链群网关使用
 	FredUserType_Normal     = 4 // 普通用户，企业DAPP创建的普通用户
-	FredUserType_DApp       = 5 // DAPP用户, 用于DAPP应用
+	FredUserType_DApp       = 5 // DAPP用户,用于DAPP应用
 
+)
+
+// 权限级别
+const (
+	FredGroupType_Service     = 1 // 系统服务权限, 可以访问所有API
+	FredGroupType_ServicePart = 2 // 系统服务权限, 可以访问部分API
+	FredGroupType_Normal      = 3 // 非实名认证用户
+	FredGroupType_Superadmin  = 4 // 超级管理员用户
+	FredGroupType_Civil       = 5 // 实名认证用户
 )
 
 type IFredClient interface {
@@ -63,6 +80,8 @@ type IFredClient interface {
 type IUserClient interface {
 	// register new user
 	RegisterUser(*RegisterRequest, http.Header) (*ResponseStruct, error)
+	// list all users info
+	AllUsersList(int, int, http.Header) (*CredentialsListResponse, error)
 	// revoke user
 	Revoke(*RevokeRequest, http.Header) error
 	// login
@@ -92,7 +111,18 @@ type IUserClient interface {
 	// query identity status
 	QueryIdentityStatus(string, http.Header) (*UserInfo, error)
 	// upload identity file
-	UploadIdentity(string, string, http.Header) error
+	UploadIdentity(map[string]string, map[string]string, http.Header) error
+	// query usertype users count. userType 1: Enterprise 2: Persional 0: Enterprise+Persional
+	QueryUsersCount(int, http.Header) (*UsersNumResponse, error)
+	// query dapp users count creted by did
+	QueryDappUsersCount(string, http.Header) (*DappUsersNumResponse, error)
+	// query userType users list
+	QueryUsersList(userType, page, num int, head http.Header) ([]DappInfoResponse, error)
+	// query dapp users list created by did
+	QueryDappUsersList(did string, page, num int, head http.Header) ([]DappInfoResponse, error)
+	// query the last num days or months(depend on querytype) users growth
+	QueryUsersGrowth(queryType, num int, head http.Header) ([]UsersGrowthResponse, error)
+	// update user ACL by feature list
 }
 
 // IACLClient ...
@@ -115,6 +145,8 @@ type IACLClient interface {
 	GetUserACLGroup(uint, http.Header) (*ACLGroup, error)
 	// update user acl group
 	UpdateUserACLGroup(*UpdateUserGroupRequest, http.Header) (*UpdateUserGroupRequest, error)
+	// get user APIs by group_id
+	GetUserACLGroupAPIs(uint, http.Header) (*ACLGroupResource, error)
 }
 
 type IEdkeyClient interface {
@@ -127,6 +159,8 @@ type IEdkeyClient interface {
 type ICertsClient interface {
 	// create cert
 	CreateCerts(*CertCreateReqBody, http.Header) (*CertCreateRespBody, error)
+	// list all certs info
+	AllCertsList(int, int, http.Header) (*CertListRespBody, error)
 	// disable cert
 	DisableCerts(*CertCreateReqBody, http.Header) (*CertCreateRespBody, error)
 	// recover cert
@@ -162,22 +196,40 @@ type User struct {
 	Email      string      `json:"email,omitempty"`
 	Secret     string      `json:"secret,omitempty"` // password
 	Identifier string      `json:"identifier,omitempty"`
+	UserType   uint        `json:"user_type,omitempty"`
 	Metadata   interface{} `json:"meta_data,omitempty"`
 }
 
 type UserInfo struct {
-	Id                 string `json:"id,omitempty"`
-	GroupID            string `json:"group_id,omitempty"`
-	Access             string `json:"access,omitempty"`
-	Phone              string `json:"phone,omitempty"`
-	Email              string `json:"email,omitempty"`
-	Identifier         string `json:"identifier,omitempty"`
-	Status             string `json:"status,omitempty"`
-	Roles              string `json:"roles,omitempty"`
-	VerificationStatus string `json:"verification_status"`
-	Issued_at          int64  `json:"issued_at,omitempty"`
-	Channel_id         string `json:"channel_id,omitempty"`
-	UpdateAt           int64  `json:"update_at,omitempty"`
+	Id                 string          `json:"id,omitempty"`
+	GroupID            string          `json:"group_id,omitempty"`
+	Access             string          `json:"access,omitempty"`
+	Phone              string          `json:"phone,omitempty"`
+	Email              string          `json:"email,omitempty"`
+	Identifier         string          `json:"identifier,omitempty"`
+	Status             string          `json:"status,omitempty"`
+	Roles              string          `json:"roles,omitempty"`
+	VerificationStatus uint            `json:"verification_status"`
+	EnterpriseInfo     *EnterpriseInfo `json:"enterprise_info,omitempty"`
+	Issued_at          int64           `json:"issued_at,omitempty"`
+	Channel_id         string          `json:"channel_id,omitempty"`
+	CreatedAt          int64           `json:"created_at,omitempty"`
+	UpdateAt           int64           `json:"update_at,omitempty"`
+}
+
+type EnterpriseInfo struct {
+	CompanyName            string `json:"company_name,omitempty"`
+	CompanyAddr            string `json:"company_address,omitempty"`
+	TaxCode                string `json:"tax_code,omitempty"`
+	JuridicalPersonName    string `json:"juridical_person_name,omitempty"`
+	JuridicalPersonTel     string `json:"juridical_person_tel,omitempty"`
+	JuridicalPersonID      string `json:"juridical_person_id,omitempty"`
+	Licence                string `json:"licence,omitempty"`
+	LicenceFileName        string `json:"licence_file_name,omitempty"`
+	IdentityTop            string `json:"identity_top,omitempty"`
+	IdentityTopFileName    string `json:"identity_top_file_type,omitempty"`
+	IdentityBottom         string `json:"identity_bottom,omitempty"`
+	IdentityBottomFileName string `json:"identity_bottom_file_type,omitempty"`
 }
 
 type LoginAccessSecret struct {
@@ -256,6 +308,22 @@ type CertCreateRespBody struct {
 	Certificate *CertCreateResp `json:"certificate,omitempty"`
 }
 
+// CertInfo
+type CertInfo struct {
+	ID          string `json:"id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	ApiKey      string `json:"api_key,omitempty"`
+	IssuedAt    int64  `json:"issued_at,omitempty"`
+	Hash        string `json:"hash,omitempty"`
+	Status      string `json:"status,omitempty"`
+}
+
+// CertListRespBody return all certs list
+type CertListRespBody struct {
+	Certificates []*CertInfo `json:"certificates,omitempty"`
+}
+
 // GetCertStutasResp is cert resp status
 type GetCertStatusResp struct {
 	Certificate GetCertStatusRespInner `json:"certificate,omitempty"`
@@ -309,6 +377,10 @@ type CredentialsStruct struct {
 	Channel_id  string      `json:"channel_id,omitempty"`
 	Issued_at   int64       `json:"issued_at,omitempty"`
 	Value       ValueStruct `json:"value,omitempty"`
+}
+
+type CredentialsListResponse struct {
+	Credentials []UserInfo `json:"credentials,omitempty"`
 }
 
 type ValueStruct struct {
@@ -387,37 +459,6 @@ type UpdateUserGroupRequest struct {
 	Users []UserInfo `json:"users,omitempty"`
 }
 
-// SubwalletRegisterRequest ...
-type SubwalletRegisterRequest struct {
-	Identifier      string `json:"identifier,omitempty"`
-	ParentIdentifer string `json:"parent_identifier, omitempty"`
-	SubwalletType   int32  `json:"subwallet_type,omitempty"`
-}
-
-// DAppUpdateRequest ...
-type DAppUpdateRequest struct {
-	Identifier  string `json:"identifier,omitempty"`
-	Name        string `json:"name,omitepmty"`
-	Type        int    `json:"type,omitempty"`
-	Description string `json:"description,omitempty"`
-	IconFile    []byte `json:"icon,omitempty"`
-	IconName    string `json:"icon_name" gorm:"type:varchar(32)"`
-}
-
-// DAppListResp ...
-type DAppListResp struct {
-	ID               int64  `json:"id,omitempty" gorm:"primary_key;AUTO_INCREMENT"`
-	Name             string `json:"name.omitempty" gorm:"type:varchar(32)"`
-	ApiKey           string `json:"api_key,omitempty" gorm:"type:varchar(128)"`
-	Identifier       string `json:"identifier,omitempty" gorm:"type:varchar(128);"`
-	ParentIdentifier string `json:"parent_identifier,omitempty" gorm:"type:varchar(128)"`
-	Type             int    `json:"type,omitempty"` //包括去中心化交易所，游戏，其他等
-	Description      string `json:"description,omitempty" gorm:"type:varchar(128)"`
-	IconFile         []byte `json:"icon_file" gorm:"type:bytea"`
-	IconName         string `json:"icon_name" gorm:"type:varchar(32)"`
-	IssuedAt         int64  `json:"issued_at,omitempty"`
-}
-
 // UsersNumResponse ...
 type UsersNumResponse struct {
 	UsersNum int `json:"users_num,omitempty"`
@@ -447,4 +488,35 @@ type UsersGrowthResponse struct {
 	DateTime string `json:"datetime,omitempty"`
 	// the num of new users created during datetime
 	GrowthAmount int `json:"growth_amount,omitempty"`
+}
+
+// SubwalletRegisterRequest ...
+type SubwalletRegisterRequest struct {
+	Identifier      string `json:"identifier,omitempty"`
+	ParentIdentifer string `json:"parent_identifier, omitempty"`
+	SubwalletType   int32  `json:"subwallet_type,omitempty"`
+}
+
+// DAppUpdateRequest ...
+type DAppUpdateRequest struct {
+	Identifier  string `json:"identifier,omitempty"`
+	Name        string `json:"name,omitepmty"`
+	Type        int    `json:"type,omitempty"`
+	Description string `json:"description,omitempty"`
+	IconFile    []byte `json:"icon,omitempty"`
+	IconName    string `json:"icon_name" gorm:"type:varchar(32)"`
+}
+
+// DAppListResp ...
+type DAppListResp struct {
+	ID               int64  `json:"id,omitempty" gorm:"primary_key;AUTO_INCREMENT"`
+	Name             string `json:"name.omitempty" gorm:"type:varchar(32)"`
+	ApiKey           string `json:"api_key,omitempty" gorm:"type:varchar(128)"`
+	Identifier       string `json:"identifier,omitempty" gorm:"type:varchar(128);"`
+	ParentIdentifier string `json:"parent_identifier,omitempty" gorm:"type:varchar(128)"`
+	Type             int    `json:"type,omitempty"` //包括去中心化交易所，游戏，其他等
+	Description      string `json:"description,omitempty" gorm:"type:varchar(128)"`
+	IconFile         []byte `json:"icon_file" gorm:"type:bytea"`
+	IconName         string `json:"icon_name" gorm:"type:varchar(32)"`
+	IssuedAt         int64  `json:"issued_at,omitempty"`
 }
